@@ -17,7 +17,12 @@ class ReAgcn(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size*3, config.num_labels)
         self.apply(self.init_bert_weights)
-
+        
+        #zhao_add
+        linear_op2 = nn.Linear(config.hidden_size*3，1)
+        self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
+        #zhao_add
+        
     def valid_filter(self, sequence_output, valid_ids):
         batch_size, max_len, feat_dim = sequence_output.shape
         valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=sequence_output.dtype,
@@ -36,20 +41,47 @@ class ReAgcn(BertPreTrainedModel):
     def extract_entity(self, sequence, e_mask):
         return self.max_pooling(sequence, e_mask)
 
-    def get_attention(self, val_out, dep_embed, adj):
+    def get_attention(self, val_out, dep_embed, adj, i):
+        #batch_size, max_len, feat_dim = val_out.shape
+        #val_us = val_out.unsqueeze(dim=2)
+        #val_us = val_us.repeat(1,1,max_len,1)
+        #val_cat = torch.cat((val_us, dep_embed), -1)
+        #atten_expand = (val_cat.float() * val_cat.float().transpose(1,2))
+        #attention_score = torch.sum(atten_expand, dim=-1)
+        #attention_score = attention_score / feat_dim ** 0.5
+        # softmax
+        #exp_attention_score = torch.exp(attention_score)
+        #exp_attention_score = torch.mul(exp_attention_score.float(), adj.float())
+        #sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
+        #attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
+        #return attention_score
+        
+        #zhao_modify
         batch_size, max_len, feat_dim = val_out.shape
         val_us = val_out.unsqueeze(dim=2)
         val_us = val_us.repeat(1,1,max_len,1)
-        val_cat = torch.cat((val_us, dep_embed), -1)
-        atten_expand = (val_cat.float() * val_cat.float().transpose(1,2))
-        attention_score = torch.sum(atten_expand, dim=-1)
-        attention_score = attention_score / feat_dim ** 0.5
-        # softmax
+        
+        #将hi,hj,eij拼接，
+        val_cat = torch.cat((val_us,val_us.transpose(1,2),dep_embed),axis=-1)
+        
+        #将4维张量，改变形状维二维，方便进入全连接层
+        val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,feat_dim))
+        
+        #输入到线性转换层，计算任意两个结点间的相关性置信值
+        val_cat = self.linear_op2[i](val_cat)
+        
+        #回复到原始的4维,并删除最后一维得到注意力分值
+        val_cat = torch.reshape(val_cat,(batch_size, max_len, max_len, 1))
+        attention_score = val_cat.squeeze(dim=-1)
+        attention_score = F.ReLU(attention_score)
+        
+        #softmax
         exp_attention_score = torch.exp(attention_score)
         exp_attention_score = torch.mul(exp_attention_score.float(), adj.float())
         sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
         attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         return attention_score
+        #zhao_modify
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, e1_mask=None, e2_mask=None,
                 dep_adj_matrix=None, dep_type_matrix=None, valid_ids=None):
@@ -64,7 +96,9 @@ class ReAgcn(BertPreTrainedModel):
         dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
         dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)
         for i, gcn_layer_module in enumerate(self.gcn_layer):
-            attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix)
+        #zhao_modify
+            attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix, i)
+        #zhao_modify
             sequence_output = gcn_layer_module(sequence_output, attention_score, dep_type_embedding_outputs)
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)
