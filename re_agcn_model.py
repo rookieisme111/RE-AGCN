@@ -64,8 +64,8 @@ class ReAgcn(BertPreTrainedModel):
         #将hi,hj,eij拼接，
         val_cat = torch.cat((val_us,val_us.transpose(1,2),dep_embed),axis=-1)
         
-        #将4维张量，改变形状维二维，方便进入全连接层
-        val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,feat_dim))
+        #将4维张量，改变形状为二维，方便进入全连接层
+        val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,-1))
         
         #输入到线性转换层，计算任意两个结点间的相关性置信值
         val_cat = self.linear_op2[i](val_cat)
