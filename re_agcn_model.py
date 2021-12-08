@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
+import torch.nn.functional as F
 from model.bert import BertPreTrainedModel, BertModel
 from model.agcn import TypeGraphConvolution
 
@@ -19,8 +20,11 @@ class ReAgcn(BertPreTrainedModel):
         self.apply(self.init_bert_weights)
         
         #zhao_add
-        linear_op2 = nn.Linear(config.hidden_size*3，1)
-        self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
+        linear_op = nn.Linear(config.hidden_size,config.hidden_size)
+        self.linear_op =nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
+        
+        linear_op2 = nn.Linear(config.hidden_size*3,1)
+        self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
         #zhao_add
         
     def valid_filter(self, sequence_output, valid_ids):
@@ -58,22 +62,30 @@ class ReAgcn(BertPreTrainedModel):
         
         #zhao_modify
         batch_size, max_len, feat_dim = val_out.shape
+        #将所有隐层向量都做统一的线性变换
+        #将原始三维向量转换为二维，方便进行线性变换
+        val_out = torch.reshape(val_out,(batch_size*max_len,-1))
+        val_out = self.linear_op[i](val_out)
+        
+        #还原为原始维度：3
+        val_out = torch.reshape(val_out,(batch_size, max_len, -1))
+        
         val_us = val_out.unsqueeze(dim=2)
         val_us = val_us.repeat(1,1,max_len,1)
         
         #将hi,hj,eij拼接，
         val_cat = torch.cat((val_us,val_us.transpose(1,2),dep_embed),axis=-1)
         
-        #将4维张量，改变形状为二维，方便进入全连接层
+        #将4维张量，改变形状维二维，方便进入全连接层
         val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,-1))
         
         #输入到线性转换层，计算任意两个结点间的相关性置信值
         val_cat = self.linear_op2[i](val_cat)
         
         #回复到原始的4维,并删除最后一维得到注意力分值
-        val_cat = torch.reshape(val_cat,(batch_size, max_len, max_len, 1))
+        val_cat = torch.reshape(val_cat,(batch_size, max_len, max_len,-1))
         attention_score = val_cat.squeeze(dim=-1)
-        attention_score = F.ReLU(attention_score)
+        attention_score = F.relu(attention_score)
         
         #softmax
         exp_attention_score = torch.exp(attention_score)
@@ -81,7 +93,6 @@ class ReAgcn(BertPreTrainedModel):
         sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
         attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         return attention_score
-        #zhao_modify
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, e1_mask=None, e2_mask=None,
                 dep_adj_matrix=None, dep_type_matrix=None, valid_ids=None):
