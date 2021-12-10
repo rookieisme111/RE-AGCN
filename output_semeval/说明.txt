@@ -1,0 +1,31 @@
+try1: epochs = 50 learn_rate=5e-5 train_batch_size = 5
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_1 --do_lower_case --num_train_epochs 50.0 --train_batch_size 5 --output_dir ./output_semeval
+
+try2: epochs = 50 learn_rate=2e-2 train_batch_size = 2
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_2 --do_lower_case --num_train_epochs 50.0 --train_batch_size 2 --output_dir ./output_semeval --learning_rate 2e-2 
+
+try3: epochs = 50 learn_rate=3e-5 train_batch_size = 16  
+修改了注意力计算的部分，a[hi,hj,eij]完成注意力计算
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_3 --do_lower_case --num_train_epochs 50.0 --train_batch_size 16 --output_dir ./output_semeval --learning_rate 3e-5 --warmup_proportion 0.06 
+
+结果：p 65.97  r 67.34 f1 66.53
+
+try4: epochs = 50 learn_rate=3e-5 train_batch_size = 16  
+修改了注意力计算的部分，a[hi,hj,eij]完成注意力计算
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_4 --do_lower_case --num_train_epochs 100.0 --train_batch_size 16 --output_dir /data/zxh/result/semeval/ --learning_rate 5e-5 --warmup_proportion 0.06
+
+try5: epochs = 150 learn_rate=3e-5 train_batch_size = 4  
+采用原始模型，试验是否可以达到论文中的效果
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_5 --do_lower_case --num_train_epochs 150.0 --train_batch_size 4 --output_dir /data/zxh/result/semeval/ --learning_rate 3e-5 --warmup_proportion 0.06
+
+try6: epoch =100 learn_rate=3e-5 train_batch_size = 16 
+使用修改后的模型，除了没有区分方向外，与最终的模型的功能相同（GAT）
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_6 --do_lower_case --num_train_epochs 100.0 --train_batch_size 16 --output_dir /data/zxh/result/semeval/ --learning_rate 3e-5 --warmup_proportion 0.06
+
+try7: epoch =100 learn_rate=3e-5 train_batch_size = 16 
+采用原始模型，实验是否可以达到论文中的效果，相较try5，批次改为16
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_7 --do_lower_case --num_train_epochs 100.0 --train_batch_size 16 --output_dir /data/zxh/result/semeval/ --learning_rate 3e-5 --warmup_proportion 0.06
+
+
+
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_large_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.TRY_8 --do_lower_case --num_train_epochs 150.0 --train_batch_size 2 --output_dir /data/zxh/result/semeval/ --learning_rate 3e-5 --warmup_proportion 0.06

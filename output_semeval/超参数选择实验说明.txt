@@ -1,0 +1,15 @@
+本实验包含了多个超参数，使用网格搜索法来进行最优超参数的选择
+超参数包含：
+            1、学习率  learning_rate
+            2、暖启动率 warmup_proportion
+            3、训练批次大小 train_batch_size
+            4、隐层丢失率 dropout_rate
+            
+            其余参数，dep_type 为local_global_graph,epochs为50，seed为8,bert预训练模型为bert_base_uncased。
+标准命令行：        
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_large_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_xx_xx --do_lower_case --num_train_epochs 150.0 --train_batch_size 2 --output_dir /data/zxh/result/semeval/ --learning_rate 3e-5 --warmup_proportion 0.06
+
+
+学习率的选择，范围为[3e-3,3e-4,3e-5,3e-6],warmup=0.1,train_batch_size=32,dropout_rate=0.1
+learning_rate=3e-3
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_lr_3e-3 --output_dir /data/zxh/result/semeval/ --do_lower_case --learning_rate 3e-3 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 4 --num_train_epochs 50.0 --seed 8
