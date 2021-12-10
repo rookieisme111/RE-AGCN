@@ -33,7 +33,9 @@ from metrics import (
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
-                    level = logging.INFO)
+                    level = logging.INFO,
+                    filename='/data/zxh/result/semeval/para_lr_3e-3.log',
+                    filemode='a')
 logger = logging.getLogger(__name__)
 
 

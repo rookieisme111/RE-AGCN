@@ -29,7 +29,7 @@ class DepInstanceParser():
                 "dep": dep['dep']
             }
         self.dep_governed_info = dep_governed_info
-        print(dep_governed_info)
+        #print(dep_governed_info)
 
     def change_word(self, word):
         if "-RRB-" in word:
