@@ -21,8 +21,10 @@ class ReAgcn(BertPreTrainedModel):
         
         #zhao_add
         linear_op = nn.Linear(config.hidden_size,config.hidden_size)
-        self.linear_op =nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
-        
+        self.linear_positive_op = nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
+        self.linear_reverse_op = nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
+
+        #ç”¨äºå°†ä¸‰ä¸ªæ‹¼æ¥çš„å¼ é‡ï¼Œçº¿æ€§è½¬æ¢ä¸ºä¸€ä¸ªå®å€¼
         linear_op2 = nn.Linear(config.hidden_size*3,1)
         self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
         #zhao_add
@@ -61,35 +63,84 @@ class ReAgcn(BertPreTrainedModel):
         #return attention_score
         
         #zhao_modify
-        batch_size, max_len, feat_dim = val_out.shape
-        #½«ËùÓĞÒş²ãÏòÁ¿¶¼×öÍ³Ò»µÄÏßĞÔ±ä»»
-        #½«Ô­Ê¼ÈıÎ¬ÏòÁ¿×ª»»Îª¶şÎ¬£¬·½±ã½øĞĞÏßĞÔ±ä»»
-        val_out = torch.reshape(val_out,(batch_size*max_len,-1))
-        val_out = self.linear_op[i](val_out)
+        # batch_size, max_len, feat_dim = val_out.shape
+
+        # val_out = torch.reshape(val_out,(batch_size*max_len,-1))
+        # val_out = self.linear_op[i](val_out)
         
-        #»¹Ô­ÎªÔ­Ê¼Î¬¶È£º3
-        val_out = torch.reshape(val_out,(batch_size, max_len, -1))
+        # val_out = torch.reshape(val_out,(batch_size, max_len, -1))
+        
+        # val_us = val_out.unsqueeze(dim=2)
+        # val_us = val_us.repeat(1,1,max_len,1)
+        
+        # val_cat = torch.cat((val_us,val_us.transpose(1,2),dep_embed),axis=-1)
+        
+        # val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,-1))
+        
+        # val_cat = self.linear_op2[i](val_cat)
+        
+        # val_cat = torch.reshape(val_cat,(batch_size, max_len, max_len,-1))
+        # attention_score = val_cat.squeeze(dim=-1)
+        # attention_score = F.relu(attention_score)
+        
+        # #softmax
+        # exp_attention_score = torch.exp(attention_score)
+        # exp_attention_score = torch.mul(exp_attention_score.float(), adj.float())
+        # sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
+        # attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
+        # return attention_score
+        #åœ¨_init_(self,config)ä¸­å¢åŠ çº¿æ€§è½¬æ¢ç»“æ„
+
+        batch_size, max_len, feat_dim = val_out.shape
         
         val_us = val_out.unsqueeze(dim=2)
         val_us = val_us.repeat(1,1,max_len,1)
         
-        #½«hi,hj,eijÆ´½Ó£¬
-        val_cat = torch.cat((val_us,val_us.transpose(1,2),dep_embed),axis=-1)
+        #å°†hi,hjæ‹¼æ¥
+        val_cat = torch.cat((val_us,val_us.transpose(1,2)),axis=-1)
         
-        #½«4Î¬ÕÅÁ¿£¬¸Ä±äĞÎ×´Î¬¶şÎ¬£¬·½±ã½øÈëÈ«Á¬½Ó²ã
-        val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,-1))
+        #åˆ†åˆ«ä½¿ç”¨å‰åå‘è½¬æ¢çŸ©é˜µè¿›è¡Œçº¿æ€§è½¬æ¢,å¹¶æ¢å¤åˆ°åŸå§‹ç»´æ•°
+        val_positive = torch.reshape(val_cat,(batch_size*max_len*max_len*2,feat_dim))
+        val_positive = self.linear_positive_op[i](val_positive)
+        val_positive = torch.reshape(val_positive,(batch_size,max_len,max_len,2*feat_dim))
         
-        #ÊäÈëµ½ÏßĞÔ×ª»»²ã£¬¼ÆËãÈÎÒâÁ½¸ö½áµã¼äµÄÏà¹ØĞÔÖÃĞÅÖµ
-        val_cat = self.linear_op2[i](val_cat)
+        val_reverse = torch.reshape(val_cat,(batch_size*max_len*max_len*2,feat_dim))
+        val_reverse = self.linear_reverse_op[i](val_reverse)
+        val_reverse = torch.reshape(val_reverse,(batch_size,max_len,max_len,2*feat_dim))
         
-        #»Ø¸´µ½Ô­Ê¼µÄ4Î¬,²¢É¾³ı×îºóÒ»Î¬µÃµ½×¢ÒâÁ¦·ÖÖµ
-        val_cat = torch.reshape(val_cat,(batch_size, max_len, max_len,-1))
-        attention_score = val_cat.squeeze(dim=-1)
+        #ä½¿ç”¨å¸¦æ–¹å‘çš„é‚»æ¥çŸ©é˜µå¯¹ä¸Šè¿°ä¸¤ä¸ªä¸­é—´å¼ é‡è¿›è¡Œç»“åˆ
+        adj_reverse = torch.clamp(adj,-1,0)
+        adj_positive = torch.add(adj_reverse,1)
+        adj_reverse = torch.abs(adj_reverse)
+        
+        #æ‰©å±•æ–¹å‘å¼ é‡ï¼Œä»¥ä¾¿å’Œä¸­é—´å¼ é‡è¿›è¡ŒæŒ‰å…ƒç´ ä¹˜
+        adj_reverse = adj_reverse.unsqueeze(dim=-1).repeat(1,1,1,2*feat_dim)
+        adj_positive = adj_positive.unsqueeze(dim=-1).repeat(1,1,1,2*feat_dim)
+        
+        #ç»“åˆä¸¤ä¸ªä¸­é—´å¼ é‡ï¼Œè·å¾—æ„ŸçŸ¥æ–¹å‘çš„å¼ é‡
+        val_positive = (val_positive.float() * adj_positive.float())
+        val_reverse = (val_reverse.float() * adj_reverse.float())
+        
+        val_temp = val_positive + val_reverse
+        
+        #å°†ç»“æœä¸ä¾èµ–åµŒå…¥æ‹¼æ¥,å¾—åˆ°ç”¨äºè®¡ç®—æ³¨æ„åŠ›çš„å¼ é‡
+        val_att = torch.cat((val_temp,dep_embed),dim=-1)
+        
+        #å°†4ç»´å¼ é‡ï¼Œæ”¹å˜å½¢çŠ¶ä¸ºäºŒç»´ï¼Œæ–¹ä¾¿è¿›å…¥å…¨è¿æ¥å±‚
+        val_att = torch.reshape(val_att,(batch_size*max_len*max_len,-1))
+        
+        #è¾“å…¥åˆ°çº¿æ€§è½¬æ¢å±‚ï¼Œè®¡ç®—ä»»æ„ä¸¤ä¸ªç»“ç‚¹é—´çš„ç›¸å…³æ€§ç½®ä¿¡å€¼
+        val_att = self.linear_op2[i](val_att)
+        
+        #å›å¤åˆ°åŸå§‹çš„4ç»´,å¹¶åˆ é™¤æœ€åä¸€ç»´å¾—åˆ°æ³¨æ„åŠ›åˆ†å€¼
+        val_att = torch.reshape(val_att,(batch_size, max_len, max_len, -1))
+        attention_score = val_att.squeeze(dim=-1)
         attention_score = F.relu(attention_score)
         
         #softmax
         exp_attention_score = torch.exp(attention_score)
-        exp_attention_score = torch.mul(exp_attention_score.float(), adj.float())
+        masked_adj = torch.abs(adj)
+        exp_attention_score = torch.mul(exp_attention_score.float(), masked_adj.float())
         sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
         attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         return attention_score
@@ -105,7 +156,7 @@ class ReAgcn(BertPreTrainedModel):
         sequence_output = self.dropout(valid_sequence_output)
 
         dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
-        dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)
+        #dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)
         for i, gcn_layer_module in enumerate(self.gcn_layer):
         #zhao_modify
             attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix, i)

@@ -133,10 +133,10 @@ def train(args, model, tokenizer, processor, device, n_gpu, results={}):
             if args.max_steps > 0 and global_step > args.max_steps:
                 break
             batch = tuple(t.to(device) for t in batch)
-            input_ids, input_mask, valid_ids, segment_ids, label_ids, e1_mask, e2_mask, dep_type_matrix = batch
+            input_ids, input_mask, valid_ids, segment_ids, label_ids, e1_mask, e2_mask, dep_adj_matrix, dep_type_matrix = batch
 
             loss = model(input_ids, segment_ids, input_mask, label_ids, e1_mask=e1_mask, e2_mask=e2_mask,
-                         valid_ids=valid_ids, dep_adj_matrix=dep_type_matrix, dep_type_matrix=dep_type_matrix)
+                         valid_ids=valid_ids, dep_adj_matrix=dep_adj_matrix, dep_type_matrix=dep_type_matrix)
             if n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu.
             if args.gradient_accumulation_steps > 1:
@@ -201,11 +201,11 @@ def evaluate(args, model, tokenizer, processor, device, mode="test", output_dir=
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         batch = tuple(t.to(device) for t in batch)
 
-        input_ids, input_mask, valid_ids, segment_ids, label_ids, e1_mask, e2_mask, dep_type_matrix = batch
+        input_ids, input_mask, valid_ids, segment_ids, label_ids, e1_mask, e2_mask, dep_adj_matrix, dep_type_matrix = batch
 
         with torch.no_grad():
             logits = model(input_ids, segment_ids, input_mask, e1_mask=e1_mask, e2_mask=e2_mask,
-                           dep_adj_matrix=dep_type_matrix, dep_type_matrix=dep_type_matrix,
+                           dep_adj_matrix=dep_adj_matrix, dep_type_matrix=dep_type_matrix,
                            valid_ids=valid_ids)
 
         nb_eval_steps += 1

@@ -36,9 +36,10 @@ class REDataset(Dataset):
                 dep_type_matrix[i][:max_words_num] = ori_dep_type_matrix[i]
             return torch.tensor(dep_type_matrix, dtype=torch.long)
 
+        dep_adj_matrix = get_dep_matrix(self.data[index]["dep_adj_matrix"])
         dep_type_matrix = get_dep_matrix(self.data[index]["dep_type_matrix"])
 
-        return input_ids,input_mask,valid_ids,segment_ids,label_ids,e1_mask_ids,e2_mask_ids, dep_type_matrix
+        return input_ids,input_mask,valid_ids,segment_ids,label_ids,e1_mask_ids,e2_mask_ids, dep_adj_matrix, dep_type_matrix
 
     def __len__(self):
         return len(self.data)
