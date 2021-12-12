@@ -52,6 +52,8 @@ class DepInstanceParser():
         for i, dep_info in enumerate(self.dep_governed_info):
             governor = dep_info["governor"]
             dep_type = dep_info["dep"]
+            if governor == -1:
+                continue
             dep_adj_matrix[i][governor] = 1 if direct is False else -1
             dep_adj_matrix[governor][i] = 1
             dep_type_matrix[i][governor] = dep_type if direct is False else "{}_in".format(dep_type)
