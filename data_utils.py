@@ -302,20 +302,20 @@ class RE_Processor():
 
             label_id = label_map[example["label"]]
 
-            if ex_index < 5:
-                logging.info("*** Example ***")
-                logging.info("guid: %s" % (example["guid"]))
-                logging.info("sentence: %s" % (example["ori_sentence"]))
-                logging.info("tokens: %s" % " ".join([str(x) for x in tokens]))
-                logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-                logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-                logging.info("valid: %s" % " ".join([str(x) for x in valid]))
-                logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-                logging.info("e1_mask: %s" % " ".join([str(x) for x in e1_mask]))
-                logging.info("e2_mask: %s" % " ".join([str(x) for x in e2_mask]))
-                logging.info("dep_adj_matrix: %s" % " ".join([str(x) for x in dep_adj_matrix]))
-                logging.info("dep_type_matrix: %s" % " ".join([str(x) for x in dep_type_matrix]))
-                logging.info("label: %s (id = %d)" % (example["label"], label_id))
+            #if ex_index < 5:
+                #logging.info("*** Example ***")
+                #logging.info("guid: %s" % (example["guid"]))
+                #logging.info("sentence: %s" % (example["ori_sentence"]))
+                #logging.info("tokens: %s" % " ".join([str(x) for x in tokens]))
+                #logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
+                #logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
+                #logging.info("valid: %s" % " ".join([str(x) for x in valid]))
+                #logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+                #logging.info("e1_mask: %s" % " ".join([str(x) for x in e1_mask]))
+                #logging.info("e2_mask: %s" % " ".join([str(x) for x in e2_mask]))
+                #logging.info("dep_adj_matrix: %s" % " ".join([str(x) for x in dep_adj_matrix]))
+                #logging.info("dep_type_matrix: %s" % " ".join([str(x) for x in dep_type_matrix]))
+                #logging.info("label: %s (id = %d)" % (example["label"], label_id))
 
             features.append({
                 "input_ids": input_ids,
