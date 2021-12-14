@@ -34,7 +34,7 @@ from metrics import (
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
                     level = logging.INFO,
-                    filename='/data/zxh/result/semeval/para_lr_3e-3.log',
+                    filename='./output_semeval/main_modified_para_dropout_0.5.log',
                     filemode='a')
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ def train(args, model, tokenizer, processor, device, n_gpu, results={}):
 
             #eval dev
             result = evaluate(args, model, tokenizer, processor, device, mode="dev")
-            logger.info(result)
+            #logger.info(result)
 
 
     loss = tr_loss / nb_tr_steps if args.do_train else None

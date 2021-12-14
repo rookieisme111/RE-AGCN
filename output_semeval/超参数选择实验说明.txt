@@ -13,3 +13,64 @@ python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval
 学习率的选择，范围为[3e-3,3e-4,3e-5,3e-6],warmup=0.1,train_batch_size=32,dropout_rate=0.1
 learning_rate=3e-3
 python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_lr_3e-3 --output_dir /data/zxh/result/semeval/ --do_lower_case --learning_rate 3e-3 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 4 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在35左右
+
+learning_rate=3e-4
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_lr_3e-4 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-4 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在43左右
+
+learning_rate=3e-5
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_lr_3e-5 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-5 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在66.8左右
+
+learning_rate=3e-6
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_lr_3e-6 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-6 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在57左右
+
+learning_rate=1e-5
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type local_global_graph --model_name RE_AGCN.SEMEVAL.BERT.L.para_lr_1e-5 --output_dir ./output_semeval/ --do_lower_case --learning_rate 1e-5 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在62左右
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+dropout_rate的选择，[0.1,0.3,0.5,0.7,0.9]
+dropout_rate = 0.9
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type full_graph --model_name RE_AGCN.SEMEVAL.BERT.L.main_para_dropout_0.9 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-5 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+dropout_rate = 0.1
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type full_graph --model_name RE_AGCN.SEMEVAL.BERT.L.main_para_dropout_0.1 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-5 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+修改dropout的位置,每个GCN后面加一层drop，修改pooled_output的组成
+dropout_rate = 0.3
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type full_graph --model_name RE_AGCN.SEMEVAL.BERT.L.main_modified_para_dropout_0.3 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-5 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在66.4左右，在epoch=29时，F1突然转变为2.17之后就不再改变
+
+dropout_rate = 0.5
+python re_agcn_main.py --do_train  --task_name semeval --data_dir ./data/semeval/ --model_path ./bert_base_uncased_pytorch --dep_type full_graph --model_name RE_AGCN.SEMEVAL.BERT.L.main_modified_para_dropout_0.5 --output_dir ./output_semeval/ --do_lower_case --learning_rate 3e-5 --warmup_proportion 0.1 --train_batch_size 32 --gradient_accumulation_steps 1 --num_train_epochs 50.0 --seed 8
+
+结果：F1维持在61左右，在epoch=11时，F1变为2.17后不变
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

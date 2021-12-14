@@ -17,6 +17,8 @@ class ReAgcn(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size*3, config.num_labels)
         self.apply(self.init_bert_weights)
+        
+        self.emb_dropout = nn.Dropout(0.1)
 
     def valid_filter(self, sequence_output, valid_ids):
         batch_size, max_len, feat_dim = sequence_output.shape
@@ -53,24 +55,28 @@ class ReAgcn(BertPreTrainedModel):
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, e1_mask=None, e2_mask=None,
                 dep_adj_matrix=None, dep_type_matrix=None, valid_ids=None):
-        sequence_output, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
+        sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
 
         if valid_ids is not None:
             valid_sequence_output = self.valid_filter(sequence_output, valid_ids)
         else:
             valid_sequence_output = sequence_output
-        sequence_output = self.dropout(valid_sequence_output)
+        sequence_output = self.emb_dropout(valid_sequence_output)
 
         dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
         dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)
         for i, gcn_layer_module in enumerate(self.gcn_layer):
             attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix)
             sequence_output = gcn_layer_module(sequence_output, attention_score, dep_type_embedding_outputs)
+            if i<len(self.gcn_layer)-1:  
+                sequence_output = self.dropout(sequence_output)
+            
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)
-
+        
+        pooled_output, _ = torch.max(sequence_output,-2)
         pooled_output = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
-        pooled_output = self.dropout(pooled_output)
+        #pooled_output = self.dropout(pooled_output)
 
         logits = self.classifier(pooled_output)
 
