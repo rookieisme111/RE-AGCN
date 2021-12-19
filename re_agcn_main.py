@@ -33,7 +33,7 @@ from metrics import (
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
-                    filename='./output_semeval/dev_para_lr_3e-5.log',
+                    filename='./output_semeval/dev.log',
                     filemode='a',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
@@ -224,6 +224,10 @@ def evaluate(args, model, tokenizer, processor, device, mode="test", output_dir=
 
     if args.task_name == 'semeval':
         result = semeval_official_eval(id2label_map, preds, out_label_ids, output_dir)
+    elif args.task_name == 'tacred':
+        result = {
+            "f1":compute_micro_f1(preds, out_label_ids, label_map, ignore_label='no_relation', output_dir=output_dir)
+        }
     else:
         result = {
             "f1":compute_micro_f1(preds, out_label_ids, label_map, ignore_label='Other', output_dir=output_dir)
@@ -399,8 +403,8 @@ def train_func(args):
     config.__dict__["num_labels"] = num_labels
     config.__dict__["type_num"] = type_num
     config.__dict__["dep_type"] = args.dep_type
-    model = ReAgcn(config)
-    # model = ReAgcn.from_pretrained(args.model_path, config=config)
+    #model = ReAgcn(config)
+    model = ReAgcn.from_pretrained(args.model_path, config=config)
 
     model.to(device)
 

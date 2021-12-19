@@ -24,7 +24,7 @@ class ReAgcn(BertPreTrainedModel):
         self.linear_positive_op = nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
         self.linear_reverse_op = nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
 
-        #用于将三个拼接的张量，线性转换为一个实值
+        #用于将三个拼接的张量，线性转换为一个实�?        
         linear_op2 = nn.Linear(config.hidden_size*3,1)
         self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
         #zhao_add
@@ -89,8 +89,7 @@ class ReAgcn(BertPreTrainedModel):
         # sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
         # attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         # return attention_score
-        #在_init_(self,config)中增加线性转换结构
-
+        #在_init_(self,config)中增加线性转换结�?
         batch_size, max_len, feat_dim = val_out.shape
         
         val_us = val_out.unsqueeze(dim=2)
@@ -99,7 +98,7 @@ class ReAgcn(BertPreTrainedModel):
         #将hi,hj拼接
         val_cat = torch.cat((val_us,val_us.transpose(1,2)),axis=-1)
         
-        #分别使用前后向转换矩阵进行线性转换,并恢复到原始维数
+        #分别使用前后向转换矩阵进行线性转�?并恢复到原始维数
         val_positive = torch.reshape(val_cat,(batch_size*max_len*max_len*2,feat_dim))
         val_positive = self.linear_positive_op[i](val_positive)
         val_positive = torch.reshape(val_positive,(batch_size,max_len,max_len,2*feat_dim))
@@ -108,7 +107,7 @@ class ReAgcn(BertPreTrainedModel):
         val_reverse = self.linear_reverse_op[i](val_reverse)
         val_reverse = torch.reshape(val_reverse,(batch_size,max_len,max_len,2*feat_dim))
         
-        #使用带方向的邻接矩阵对上述两个中间张量进行结合
+        #使用带方向的邻接矩阵对上述两个中间张量进行结�?        
         adj_reverse = torch.clamp(adj,-1,0)
         adj_positive = torch.add(adj_reverse,1)
         adj_reverse = torch.abs(adj_reverse)
@@ -126,13 +125,13 @@ class ReAgcn(BertPreTrainedModel):
         #将结果与依赖嵌入拼接,得到用于计算注意力的张量
         val_att = torch.cat((val_temp,dep_embed),dim=-1)
         
-        #将4维张量，改变形状为二维，方便进入全连接层
+        #�?维张量，改变形状为二维，方便进入全连接层
         val_att = torch.reshape(val_att,(batch_size*max_len*max_len,-1))
         
-        #输入到线性转换层，计算任意两个结点间的相关性置信值
+        #输入到线性转换层，计算任意两个结点间的相关性置信�?        
         val_att = self.linear_op2[i](val_att)
         
-        #回复到原始的4维,并删除最后一维得到注意力分值
+        #回复到原始的4�?并删除最后一维得到注意力分�?        
         val_att = torch.reshape(val_att,(batch_size, max_len, max_len, -1))
         attention_score = val_att.squeeze(dim=-1)
         attention_score = F.relu(attention_score)
@@ -164,7 +163,8 @@ class ReAgcn(BertPreTrainedModel):
             sequence_output = gcn_layer_module(sequence_output, attention_score, dep_type_embedding_outputs)
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)
-
+        
+        pooled_output,_ = torch.max(sequence_output,-2)
         pooled_output = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
         pooled_output = self.dropout(pooled_output)
 
