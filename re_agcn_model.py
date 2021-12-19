@@ -19,6 +19,7 @@ class ReAgcn(BertPreTrainedModel):
         self.apply(self.init_bert_weights)
         
         self.emb_dropout = nn.Dropout(0.1)
+        self.gcn_dropout = nn.Dropout(0.5)
 
     def valid_filter(self, sequence_output, valid_ids):
         batch_size, max_len, feat_dim = sequence_output.shape
@@ -69,7 +70,7 @@ class ReAgcn(BertPreTrainedModel):
             attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix)
             sequence_output = gcn_layer_module(sequence_output, attention_score, dep_type_embedding_outputs)
             if i<len(self.gcn_layer)-1:  
-                sequence_output = self.dropout(sequence_output)
+                sequence_output = self.gcn_dropout(sequence_output)
             
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)

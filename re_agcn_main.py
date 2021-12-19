@@ -34,7 +34,7 @@ from metrics import (
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
                     level = logging.INFO,
-                    filename='./output_semeval/main_modified_para_dropout_0.5.log',
+                    filename='./output_semeval/bert_load.log',
                     filemode='a')
 logger = logging.getLogger(__name__)
 
@@ -399,8 +399,8 @@ def train_func(args):
     config.__dict__["num_labels"] = num_labels
     config.__dict__["type_num"] = type_num
     config.__dict__["dep_type"] = args.dep_type
-    model = ReAgcn(config)
-    # model = ReAgcn.from_pretrained(args.model_path, config=config)
+    #model = ReAgcn(config)
+    model = ReAgcn.from_pretrained(args.model_path, config=config)
 
     model.to(device)
 
