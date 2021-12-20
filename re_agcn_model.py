@@ -12,8 +12,12 @@ class ReAgcn(BertPreTrainedModel):
         super(ReAgcn, self).__init__(config)
         self.bert = BertModel(config)
         self.dep_type_embedding = nn.Embedding(config.type_num, config.hidden_size, padding_idx=0)
+
         gcn_layer = TypeGraphConvolution(config.hidden_size, config.hidden_size)
-        self.gcn_layer = nn.ModuleList([copy.deepcopy(gcn_layer) for _ in range(config.num_gcn_layers)])
+        self.entity_hidden_size = config.entity_hidden_size
+        first_gcn_layer = TypeGraphConvolution(config.hidden_size + config.entity_hidden_size, config.hidden_size)
+        self.gcn_layer = nn.ModuleList([first_gcn_layer if _ == 0 else copy.deepcopy(gcn_layer) for _ in range(config.num_gcn_layers)])
+
         self.ensemble_linear = nn.Linear(1, config.num_gcn_layers)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size*3, config.num_labels)
@@ -21,18 +25,19 @@ class ReAgcn(BertPreTrainedModel):
         
         #zhao_add
         linear_op = nn.Linear(config.hidden_size,config.hidden_size)
-        self.linear_positive_op = nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
+        first_linear_op = nn.Linear(config.hidden_size + config.entity_hidden_size , config.hidden_size)
+        self.linear_positive_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
         self.linear_reverse_op = nn.ModuleList([copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
 
-        #用于将三个拼接的张量，线性转换为一个实�?        
+        #用于将三个拼接的张量，线性转换为一个实�?        
         linear_op2 = nn.Linear(config.hidden_size*3,1)
-        self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
+        first_linear_op2 = nn.Linear( config.hidden_size*3 + config.entity_hidden_size*2 , 1 )
+        self.linear_op2 =nn.ModuleList([ first_linear_op2 if _ == 0 else copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
         #zhao_add
         
         #add networks for entity-aware module
-        self.We_linear = nn.Linear(config.hidden_size*2,config.hidden_size)
-        self.Wg_linear = nn.Linear(config.hidden_size*2,config.hidden_size*2)
-        self.temp_linear = nn.Linear(config.hidden_size*2,config.hidden_size)
+        self.We_linear = nn.Linear(config.hidden_size*2,config.entity_hidden_size)
+        self.Wg_linear = nn.Linear(config.hidden_size + config.entity_hidden_size , config.hidden_size + config.entity_hidden_size)
         
     def valid_filter(self, sequence_output, valid_ids):
         batch_size, max_len, feat_dim = sequence_output.shape
@@ -94,7 +99,7 @@ class ReAgcn(BertPreTrainedModel):
         # sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
         # attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         # return attention_score
-        #在_init_(self,config)中增加线性转换结�?
+        #在_init_(self,config)中增加线性转换结�?
         batch_size, max_len, feat_dim = val_out.shape
         
         val_us = val_out.unsqueeze(dim=2)
@@ -103,16 +108,16 @@ class ReAgcn(BertPreTrainedModel):
         #将hi,hj拼接
         val_cat = torch.cat((val_us,val_us.transpose(1,2)),axis=-1)
         
-        #分别使用前后向转换矩阵进行线性转�?并恢复到原始维数
-        val_positive = torch.reshape(val_cat,(batch_size*max_len*max_len*2,feat_dim))
+        #分别使用前后向转换矩阵进行线性转�?并恢复到原始维数
+        val_positive = val_cat.view(batch_size*max_len*max_len*2,feat_dim)
         val_positive = self.linear_positive_op[i](val_positive)
-        val_positive = torch.reshape(val_positive,(batch_size,max_len,max_len,2*feat_dim))
+        val_positive = val_positive.view(batch_size,max_len,max_len,2*feat_dim)
         
-        val_reverse = torch.reshape(val_cat,(batch_size*max_len*max_len*2,feat_dim))
+        val_reverse = val_cat.view(batch_size*max_len*max_len*2,feat_dim)
         val_reverse = self.linear_reverse_op[i](val_reverse)
-        val_reverse = torch.reshape(val_reverse,(batch_size,max_len,max_len,2*feat_dim))
+        val_reverse = val_reverse.view(batch_size,max_len,max_len,2*feat_dim)
         
-        #使用带方向的邻接矩阵对上述两个中间张量进行结�?        
+        #使用带方向的邻接矩阵对上述两个中间张量进行结�?        
         adj_reverse = torch.clamp(adj,-1,0)
         adj_positive = torch.add(adj_reverse,1)
         adj_reverse = torch.abs(adj_reverse)
@@ -130,22 +135,22 @@ class ReAgcn(BertPreTrainedModel):
         #将结果与依赖嵌入拼接,得到用于计算注意力的张量
         val_att = torch.cat((val_temp,dep_embed),dim=-1)
         
-        #�?维张量，改变形状为二维，方便进入全连接层
-        val_att = torch.reshape(val_att,(batch_size*max_len*max_len,-1))
+        #�?维张量，改变形状为二维，方便进入全连接层
+        val_att = val_att.view(batch_size*max_len*max_len,-1)
         
-        #输入到线性转换层，计算任意两个结点间的相关性置信�?        
+        #输入到线性转换层，计算任意两个结点间的相关性置信�?        
         val_att = self.linear_op2[i](val_att)
         
-        #回复到原始的4�?并删除最后一维得到注意力分�?        
-        val_att = torch.reshape(val_att,(batch_size, max_len, max_len, -1))
+        #回复到原始的4�?并删除最后一维得到注意力分�?        
+        val_att = val_att.view(batch_size, max_len, max_len, -1)
         attention_score = val_att.squeeze(dim=-1)
-        attention_score = F.relu(attention_score)
+        attention_score = F.leaky_relu(attention_score)
         
         #softmax
         exp_attention_score = torch.exp(attention_score)
         masked_adj = torch.abs(adj)
         exp_attention_score = torch.mul(exp_attention_score.float(), masked_adj.float())
-        sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
+        sum_attention_score = torch.sum(exp_attention_score, dim=-1, keepdim = True).repeat(1,1,max_len)
         attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         return attention_score
 
@@ -165,16 +170,12 @@ class ReAgcn(BertPreTrainedModel):
         candidate_output = torch.cat([sequence,entities_expand],dim=-1)
         
         gate_val = torch.mul(candidate_output,s_average)
-        gate_val = torch.reshape(gate_val,(batch_size*max_len,-1))
+        gate_val = gate_val.view(batch_size*max_len,-1)
         gate_val = self.Wg_linear(gate_val)
-        gate_val = torch.reshape(gate_val,(batch_size,max_len,-1))
+        gate_val = gate_val.view(batch_size,max_len,-1)
         
-        aware_output = torch.mul(candidate_output,gate_val)
-        aware_output = torch.reshape(aware_output,(batch_size*max_len,-1))
-        aware_output = self.temp_linear(aware_output)
-        aware_output = torch.reshape(aware_output,(batch_size,max_len,-1))        
-        
-    
+        aware_output = torch.mul(candidate_output,gate_val)      
+
         return aware_output
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, e1_mask=None, e2_mask=None,
@@ -188,7 +189,8 @@ class ReAgcn(BertPreTrainedModel):
         sequence_output = self.dropout(valid_sequence_output)
         
         #add entity-aware module,new shape is (batch_size,max_length,config.hidden_size*2)
-        sequence_output = self.entity_aware(sequence_output,e1_mask,e2_mask)
+        if self.entity_hidden_size > 0:
+            sequence_output = self.entity_aware(sequence_output,e1_mask,e2_mask)
         
         dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
         #dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)

@@ -352,6 +352,10 @@ def get_args():
                         default='tcp://127.0.0.1:23456')
     parser.add_argument('--dep_type', type=str, default='local_global_graph',choices=["full_graph", "local_graph","global_graph","local_global_graph"])
     parser.add_argument('--num_gcn_layers', type=int, default=2)
+    parser.add_argument("--entity_hidden_size",
+                    type=int,
+                    default=0,
+                    help="hidden size of entity-aware")
 
     args = parser.parse_args()
 
@@ -403,6 +407,7 @@ def train_func(args):
     config.__dict__["num_labels"] = num_labels
     config.__dict__["type_num"] = type_num
     config.__dict__["dep_type"] = args.dep_type
+    config.__dict__["entity_hidden_size"] = args.entity_hidden_size
     #model = ReAgcn(config)
     model = ReAgcn.from_pretrained(args.model_path, config=config)
 
