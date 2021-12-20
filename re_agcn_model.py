@@ -29,6 +29,11 @@ class ReAgcn(BertPreTrainedModel):
         self.linear_op2 =nn.ModuleList([copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
         #zhao_add
         
+        #add networks for entity-aware module
+        self.We_linear = nn.Linear(config.hidden_size*2,config.hidden_size)
+        self.Wg_linear = nn.Linear(config.hidden_size*2,config.hidden_size*2)
+        self.temp_linear = nn.Linear(config.hidden_size*2,config.hidden_size)
+        
     def valid_filter(self, sequence_output, valid_ids):
         batch_size, max_len, feat_dim = sequence_output.shape
         valid_output = torch.zeros(batch_size, max_len, feat_dim, dtype=sequence_output.dtype,
@@ -144,6 +149,34 @@ class ReAgcn(BertPreTrainedModel):
         attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         return attention_score
 
+    def entity_aware(self, sequence, e1_mask, e2_mask):
+        batch_size, max_len, feat_dim = sequence.shape
+    
+        e1_h = self.extract_entity(sequence, e1_mask) 
+        e2_h = self.extract_entity(sequence, e2_mask)
+    
+        entities_h = torch.cat([e1_h,e2_h], dim=-1)
+        entities_h = self.We_linear(entities_h)
+        entities_expand = entities_h.unsqueeze(dim=1).repeat(1,max_len,1)
+    
+        s_average = torch.mean(sequence,dim = -2,keepdim = True).repeat(1,max_len,1)
+        s_average = torch.cat([s_average,entities_expand],dim=-1)
+    
+        candidate_output = torch.cat([sequence,entities_expand],dim=-1)
+        
+        gate_val = torch.mul(candidate_output,s_average)
+        gate_val = torch.reshape(gate_val,(batch_size*max_len,-1))
+        gate_val = self.Wg_linear(gate_val)
+        gate_val = torch.reshape(gate_val,(batch_size,max_len,-1))
+        
+        aware_output = torch.mul(candidate_output,gate_val)
+        aware_output = torch.reshape(aware_output,(batch_size*max_len,-1))
+        aware_output = self.temp_linear(aware_output)
+        aware_output = torch.reshape(aware_output,(batch_size,max_len,-1))        
+        
+    
+        return aware_output
+
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, e1_mask=None, e2_mask=None,
                 dep_adj_matrix=None, dep_type_matrix=None, valid_ids=None):
         sequence_output, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
@@ -153,7 +186,10 @@ class ReAgcn(BertPreTrainedModel):
         else:
             valid_sequence_output = sequence_output
         sequence_output = self.dropout(valid_sequence_output)
-
+        
+        #add entity-aware module,new shape is (batch_size,max_length,config.hidden_size*2)
+        sequence_output = self.entity_aware(sequence_output,e1_mask,e2_mask)
+        
         dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
         #dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)
         for i, gcn_layer_module in enumerate(self.gcn_layer):
