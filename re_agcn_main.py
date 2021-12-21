@@ -356,7 +356,14 @@ def get_args():
                     type=int,
                     default=0,
                     help="hidden size of entity-aware")
-
+    parser.add_argument("--emb_dropout_porb",
+                    default=0.1,
+                    type=float,
+                    help="Dropout prob of bert embedding")
+    parser.add_argument("--gcn_dropout_porb",
+                    default=0.1,
+                    type=float,
+                    help="Dropout prob of gcn layer embedding")
     args = parser.parse_args()
 
     args.task_name = args.task_name.lower()
@@ -408,6 +415,8 @@ def train_func(args):
     config.__dict__["type_num"] = type_num
     config.__dict__["dep_type"] = args.dep_type
     config.__dict__["entity_hidden_size"] = args.entity_hidden_size
+    config.__dict__["emb_dropout_prob"] = args.emb_dropout_prob
+    config.__dict__["gcn_dropout_prob"] = args.gcn_dropout_prob
     #model = ReAgcn(config)
     model = ReAgcn.from_pretrained(args.model_path, config=config)
 

@@ -19,7 +19,8 @@ class ReAgcn(BertPreTrainedModel):
         self.gcn_layer = nn.ModuleList([first_gcn_layer if _ == 0 else copy.deepcopy(gcn_layer) for _ in range(config.num_gcn_layers)])
 
         self.ensemble_linear = nn.Linear(1, config.num_gcn_layers)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.emb_dropout = nn.Dropout(config.emb_dropout_prob)
+        self.gcn_dropout = nn.Dropout(config.gcn_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size*3, config.num_labels)
         self.apply(self.init_bert_weights)
         
@@ -29,7 +30,7 @@ class ReAgcn(BertPreTrainedModel):
         self.linear_positive_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
         self.linear_reverse_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
 
-        #用于将三个拼接的张量，线性转换为一个实�?        
+        #用于将三个拼接的张量，线性转换为一个实�?        
         linear_op2 = nn.Linear(config.hidden_size*3,1)
         first_linear_op2 = nn.Linear( config.hidden_size*3 + config.entity_hidden_size*2 , 1 )
         self.linear_op2 =nn.ModuleList([ first_linear_op2 if _ == 0 else copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
@@ -99,7 +100,7 @@ class ReAgcn(BertPreTrainedModel):
         # sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
         # attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         # return attention_score
-        #在_init_(self,config)中增加线性转换结�?
+        #在_init_(self,config)中增加线性转换结�?
         batch_size, max_len, feat_dim = val_out.shape
         
         val_us = val_out.unsqueeze(dim=2)
@@ -108,7 +109,7 @@ class ReAgcn(BertPreTrainedModel):
         #将hi,hj拼接
         val_cat = torch.cat((val_us,val_us.transpose(1,2)),axis=-1)
         
-        #分别使用前后向转换矩阵进行线性转�?并恢复到原始维数
+        #分别使用前后向转换矩阵进行线性转�?并恢复到原始维数
         val_positive = val_cat.view(batch_size*max_len*max_len*2,feat_dim)
         val_positive = self.linear_positive_op[i](val_positive)
         val_positive = val_positive.view(batch_size,max_len,max_len,2*feat_dim)
@@ -117,7 +118,7 @@ class ReAgcn(BertPreTrainedModel):
         val_reverse = self.linear_reverse_op[i](val_reverse)
         val_reverse = val_reverse.view(batch_size,max_len,max_len,2*feat_dim)
         
-        #使用带方向的邻接矩阵对上述两个中间张量进行结�?        
+        #使用带方向的邻接矩阵对上述两个中间张量进行结�?        
         adj_reverse = torch.clamp(adj,-1,0)
         adj_positive = torch.add(adj_reverse,1)
         adj_reverse = torch.abs(adj_reverse)
@@ -135,13 +136,13 @@ class ReAgcn(BertPreTrainedModel):
         #将结果与依赖嵌入拼接,得到用于计算注意力的张量
         val_att = torch.cat((val_temp,dep_embed),dim=-1)
         
-        #�?维张量，改变形状为二维，方便进入全连接层
+        #�?维张量，改变形状为二维，方便进入全连接层
         val_att = val_att.view(batch_size*max_len*max_len,-1)
         
         #输入到线性转换层，计算任意两个结点间的相关性置信�?        
         val_att = self.linear_op2[i](val_att)
         
-        #回复到原始的4�?并删除最后一维得到注意力分�?        
+        #回复到原始的4�?并删除最后一维得到注意力分�?        
         val_att = val_att.view(batch_size, max_len, max_len, -1)
         attention_score = val_att.squeeze(dim=-1)
         attention_score = F.leaky_relu(attention_score)
@@ -186,7 +187,7 @@ class ReAgcn(BertPreTrainedModel):
             valid_sequence_output = self.valid_filter(sequence_output, valid_ids)
         else:
             valid_sequence_output = sequence_output
-        sequence_output = self.dropout(valid_sequence_output)
+        sequence_output = self.emb_dropout(valid_sequence_output)
         
         #add entity-aware module,new shape is (batch_size,max_length,config.hidden_size*2)
         if self.entity_hidden_size > 0:
@@ -198,10 +199,14 @@ class ReAgcn(BertPreTrainedModel):
         #zhao_modify
             attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix, i)
         #zhao_modify
-            if i==0:
-                sequence_output = gcn_layer_module(sequence_output, attention_score)
-            else:
+            if self.entity_hidden_size == 0 or i != 0:
                 sequence_output = gcn_layer_module(sequence_output, attention_score, dep_type_embedding_outputs)
+            else:
+                sequence_output = gcn_layer_module(sequence_output, attention_score)
+
+            if i < len(self.gcn_layer)-1:
+                sequence_output = self.gcn_dropout(sequence_output)
+
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)
         
