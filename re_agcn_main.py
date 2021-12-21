@@ -356,11 +356,11 @@ def get_args():
                     type=int,
                     default=0,
                     help="hidden size of entity-aware")
-    parser.add_argument("--emb_dropout_porb",
+    parser.add_argument("--emb_dropout_prob",
                     default=0.1,
                     type=float,
                     help="Dropout prob of bert embedding")
-    parser.add_argument("--gcn_dropout_porb",
+    parser.add_argument("--gcn_dropout_prob",
                     default=0.1,
                     type=float,
                     help="Dropout prob of gcn layer embedding")
