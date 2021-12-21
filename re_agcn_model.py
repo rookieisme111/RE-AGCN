@@ -212,7 +212,7 @@ class ReAgcn(BertPreTrainedModel):
         
         pooled_output,_ = torch.max(sequence_output,-2)
         pooled_output = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
-        pooled_output = self.dropout(pooled_output)
+        #pooled_output = self.dropout(pooled_output)
 
         logits = self.classifier(pooled_output)
 
