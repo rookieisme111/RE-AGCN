@@ -58,13 +58,16 @@ class TypeGraphConvolution(nn.Module):
             bound = 1 / math.sqrt(fan_in)
             init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, text, adj, dep_embed):
+    def forward(self, text, adj, dep_embed=None):
         batch_size, max_len, feat_dim = text.shape
         val_us = text.unsqueeze(dim=2)
         val_us = val_us.repeat(1, 1, max_len, 1)
-        val_sum = val_us + dep_embed
+        if dep_embed == None:
+            val_sum = val_us
+        else:
+            val_sum = val_us + dep_embed
         adj_us = adj.unsqueeze(dim=-1)
-        adj_us = adj_us.repeat(1, 1, 1, feat_dim)
+        adj_us = adj_us.repeat(1, 1, 1, self.out_features)
         hidden = torch.matmul(val_sum.float(), self.weight.float())
         output = hidden.transpose(1,2) * adj_us.float()
         output = torch.sum(output, dim=2)
