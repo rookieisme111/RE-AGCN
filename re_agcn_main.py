@@ -33,7 +33,7 @@ from metrics import (
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
-                    filename='./output_semeval/dev_try.log',
+                    filename='./output_tacred/dev_pure_gat_layer_2.log',
                     filemode='a',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ def train(args, model, tokenizer, processor, device, n_gpu, results={}):
             if is_main_process():
                 train_iter.update(1)
                 perplexity = torch.exp(torch.tensor(loss))
-                train_iter.set_postfix_str(f"Step: {global_step} Loss: {loss:.5f} ppl: {perplexity:.5f}")
+                train_iter.set_postfix_str(f"Step: {global_step} Loss: {loss:.5f} ppl: {perplexity:.5f}") 
 
             tr_loss += loss.item()
             nb_tr_examples += input_ids.size(0)
@@ -226,7 +226,7 @@ def evaluate(args, model, tokenizer, processor, device, mode="test", output_dir=
         result = semeval_official_eval(id2label_map, preds, out_label_ids, output_dir)
     elif args.task_name == 'tacred':
         result = {
-            "f1":compute_micro_f1(preds, out_label_ids, label_map, ignore_label='no_relation', output_dir=output_dir)
+            "eval":compute_micro_f1(preds, out_label_ids, label_map, ignore_label='no_relation', output_dir=output_dir)
         }
     else:
         result = {
@@ -438,7 +438,7 @@ def test_func(args):
     processor = RE_Processor(dep_type=config.dep_type, types_dict=dict_bin["types_dict"], labels_dict=dict_bin["labels_dict"])
     model.to(device)
     result = evaluate(args, model, tokenizer, processor, device, mode="test")
-    logger.info(result)
+    #logger.info(result)
 
 def predict_func(args):
     pass

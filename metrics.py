@@ -74,7 +74,7 @@ def compute_micro_f1(preds, labels, label_map, ignore_label, output_dir=None):
         target_name.append(name)
     res = classification_report(labels, preds, labels=target_id, target_names=target_name, output_dict=True)
     print(res)
-    return res["micro avg"]["f1-score"]
+    return res["micro avg"]
 
 def compute_metrics(preds, labels, rel_size, ignore_label):
     assert len(preds) == len(labels)
