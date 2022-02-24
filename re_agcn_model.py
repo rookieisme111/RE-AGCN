@@ -105,7 +105,7 @@ class ReAgcn(BertPreTrainedModel):
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, e1_mask=None, e2_mask=None,
                 dep_adj_matrix=None, dep_type_matrix=None, valid_ids=None):
-        sequence_output, _ = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
+        sequence_output, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
 
         if valid_ids is not None:
             valid_sequence_output = self.valid_filter(sequence_output, valid_ids)
@@ -132,7 +132,6 @@ class ReAgcn(BertPreTrainedModel):
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)
         
-        pooled_output,_ = torch.max(sequence_output,-2)
         pooled_output = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
 
         logits = self.classifier(pooled_output)
