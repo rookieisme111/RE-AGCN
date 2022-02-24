@@ -29,11 +29,11 @@ class ReAgcn(BertPreTrainedModel):
         first_linear_op = nn.Linear(config.hidden_size+config.entity_hidden_size, config.hidden_size+config.entity_hidden_size)
         self.linear_W = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
 
-        #用于将拼接的张量，线性转换为一个实�?        
-        linear_op2 = nn.Linear(config.hidden_size*2,1)
-        first_linear_op2 = nn.Linear( config.hidden_size*2 + config.entity_hidden_size*2 , 1 )
-        self.linear_op2 =nn.ModuleList([ first_linear_op2 if _ == 0 else copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
-        #zhao_add
+        # #用于将拼接的张量，线性转换为一个实�?        
+        # linear_op2 = nn.Linear(config.hidden_size*2,1)
+        # first_linear_op2 = nn.Linear( config.hidden_size*2 + config.entity_hidden_size*2 , 1 )
+        # self.linear_op2 =nn.ModuleList([ first_linear_op2 if _ == 0 else copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
+        # #zhao_add
         
         #add networks for entity-aware module
         self.We_linear = nn.Linear(config.hidden_size*2,config.entity_hidden_size)
@@ -67,15 +67,10 @@ class ReAgcn(BertPreTrainedModel):
         val_us = val_out.unsqueeze(dim=2)
         val_us = val_us.repeat(1,1,max_len,1)
 
-        val_cat = torch.cat((val_us,val_us.transpose(1,2)),axis=-1)
+        atten_expand = (val_us.float() * val_us.float().transpose(1,2))
         
-        val_att = val_cat.view(batch_size*max_len*max_len,-1)
-             
-        val_att = self.linear_op2[i](val_att)
-              
-        val_att = val_att.view(batch_size, max_len, max_len, -1)
-        attention_score = val_att.squeeze(dim=-1)
-        attention_score = F.leaky_relu(attention_score)
+        attention_score = torch.sum(atten_expand, dim=-1)
+        attention_score = attention_score / feat_dim ** 0.5
         
         #softmax
         exp_attention_score = torch.exp(attention_score)
