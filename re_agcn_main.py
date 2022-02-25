@@ -33,7 +33,7 @@ from metrics import (
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
-                    filename='./output_tacred/dev_pure_gat_layer_2.log',
+                    filename='./output_semeval_dot/pure_gat_layer3_modified.log',
                     filemode='a',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)

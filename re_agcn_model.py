@@ -113,18 +113,13 @@ class ReAgcn(BertPreTrainedModel):
             valid_sequence_output = sequence_output
         sequence_output = self.emb_dropout(valid_sequence_output)
         
-        dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
         
         if self.entity_hidden_size > 0:
             sequence_output = self.entity_aware(sequence_output,e1_mask,e2_mask)
         
         for i, gcn_layer_module in enumerate(self.gcn_layer):
             attention_score = self.get_attention(sequence_output, dep_adj_matrix, i)
-        
-            if self.entity_hidden_size == 0 or i != 0:
-                sequence_output = gcn_layer_module(sequence_output, attention_score, dep_type_embedding_outputs)
-            else:
-                sequence_output = gcn_layer_module(sequence_output, attention_score)
+            sequence_output = gcn_layer_module(sequence_output, attention_score)
 
             if i < len(self.gcn_layer)-1:
                 sequence_output = self.gcn_dropout(sequence_output)
