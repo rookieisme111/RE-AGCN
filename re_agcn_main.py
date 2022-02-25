@@ -33,7 +33,7 @@ from metrics import (
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
-                    filename='./output_semeval/DAGAT_3.log',
+                    filename='./output_semeval_dot/DAGAT_2.log',
                     filemode='a',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)

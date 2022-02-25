@@ -30,7 +30,7 @@ class ReAgcn(BertPreTrainedModel):
         self.linear_positive_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
         self.linear_reverse_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
 
-        #用于将三个拼接的张量，线性转换为一个实�?        
+        #用于将三个拼接的张量，线性转换为一个实�?        
         linear_op2 = nn.Linear(config.hidden_size*3,1)
         first_linear_op2 = nn.Linear( config.hidden_size*3 + config.entity_hidden_size*2 , 1 )
         self.linear_op2 =nn.ModuleList([ first_linear_op2 if _ == 0 else copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
@@ -59,98 +59,36 @@ class ReAgcn(BertPreTrainedModel):
         return self.max_pooling(sequence, e_mask)
 
     def get_attention(self, val_out, dep_embed, adj, i):
-        #batch_size, max_len, feat_dim = val_out.shape
-        #val_us = val_out.unsqueeze(dim=2)
-        #val_us = val_us.repeat(1,1,max_len,1)
-        #val_cat = torch.cat((val_us, dep_embed), -1)
-        #atten_expand = (val_cat.float() * val_cat.float().transpose(1,2))
-        #attention_score = torch.sum(atten_expand, dim=-1)
-        #attention_score = attention_score / feat_dim ** 0.5
-        # softmax
-        #exp_attention_score = torch.exp(attention_score)
-        #exp_attention_score = torch.mul(exp_attention_score.float(), adj.float())
-        #sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
-        #attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
-        #return attention_score
-        
-        #zhao_modify
-        # batch_size, max_len, feat_dim = val_out.shape
-
-        # val_out = torch.reshape(val_out,(batch_size*max_len,-1))
-        # val_out = self.linear_op[i](val_out)
-        
-        # val_out = torch.reshape(val_out,(batch_size, max_len, -1))
-        
-        # val_us = val_out.unsqueeze(dim=2)
-        # val_us = val_us.repeat(1,1,max_len,1)
-        
-        # val_cat = torch.cat((val_us,val_us.transpose(1,2),dep_embed),axis=-1)
-        
-        # val_cat = torch.reshape(val_cat,(batch_size*max_len*max_len,-1))
-        
-        # val_cat = self.linear_op2[i](val_cat)
-        
-        # val_cat = torch.reshape(val_cat,(batch_size, max_len, max_len,-1))
-        # attention_score = val_cat.squeeze(dim=-1)
-        # attention_score = F.relu(attention_score)
-        
-        # #softmax
-        # exp_attention_score = torch.exp(attention_score)
-        # exp_attention_score = torch.mul(exp_attention_score.float(), adj.float())
-        # sum_attention_score = torch.sum(exp_attention_score, dim=-1).unsqueeze(dim=-1).repeat(1,1,max_len)
-        # attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
-        # return attention_score
-        #在_init_(self,config)中增加线性转换结�?
         batch_size, max_len, feat_dim = val_out.shape
         
         val_us = val_out.unsqueeze(dim=2)
         val_us = val_us.repeat(1,1,max_len,1)
         
-        #将hi,hj拼接
-        val_cat = torch.cat((val_us,val_us.transpose(1,2)),axis=-1)
-        
-        #分别使用前后向转换矩阵进行线性转�?并恢复到原始维数
-        val_positive = val_cat.view(batch_size*max_len*max_len*2,feat_dim)
+        val_reverse = val_us.reshape(batch_size*max_len*max_len,feat_dim)
+        val_positive = val_us.view(batch_size*max_len*max_len,feat_dim) 
+
         val_positive = self.linear_positive_op[i](val_positive)
-        val_positive = val_positive.view(batch_size,max_len,max_len,2*feat_dim)
-        
-        val_reverse = val_cat.view(batch_size*max_len*max_len*2,feat_dim)
         val_reverse = self.linear_reverse_op[i](val_reverse)
-        val_reverse = val_reverse.view(batch_size,max_len,max_len,2*feat_dim)
-        
-        #使用带方向的邻接矩阵对上述两个中间张量进行结�?        
+
+        val_positive = torch.cat((val_positive,dep_embed),axis=-1)
+        val_positive = torch.cat((val_positive,dep_embed),axis=-1)
+
+        atten_expand_positive = (val_positive.float() * val_positive.float().transpose(1,2))
+        atten_expand_reverse = (val_reverse.float() * val_reverse.float().transpose(1,2))
+
+        atten_expand_positive = torch.sum(atten_expand_positive,dim=-1)
+        atten_expand_positive = atten_expand_positive / feat_dim ** 0.5
+        atten_expand_reverse = torch.sum(atten_expand_reverse,dim=-1)
+        atten_expand_reverse = atten_expand_reverse / feat_dim ** 0.5
+
         adj_reverse = torch.clamp(adj,-1,0)
-        adj_positive = torch.add(adj_reverse,1)
-        adj_reverse = torch.abs(adj_reverse)
-        
-        #扩展方向张量，以便和中间张量进行按元素乘
-        adj_reverse = adj_reverse.unsqueeze(dim=-1).repeat(1,1,1,2*feat_dim)
-        adj_positive = adj_positive.unsqueeze(dim=-1).repeat(1,1,1,2*feat_dim)
-        
-        #结合两个中间张量，获得感知方向的张量
-        val_positive = (val_positive.float() * adj_positive.float())
-        val_reverse = (val_reverse.float() * adj_reverse.float())
-        
-        val_temp = val_positive + val_reverse
-        
-        #将结果与依赖嵌入拼接,得到用于计算注意力的张量
-        val_att = torch.cat((val_temp,dep_embed),dim=-1)
-        
-        #�?维张量，改变形状为二维，方便进入全连接层
-        val_att = val_att.view(batch_size*max_len*max_len,-1)
-        
-        #输入到线性转换层，计算任意两个结点间的相关性置信�?        
-        val_att = self.linear_op2[i](val_att)
-        
-        #回复到原始的4�?并删除最后一维得到注意力分�?        
-        val_att = val_att.view(batch_size, max_len, max_len, -1)
-        attention_score = val_att.squeeze(dim=-1)
-        attention_score = F.leaky_relu(attention_score)
+        adj_reverse = torch.abs(adj_reverse) 
+        adj_positive = torch.clamp(adj,1)
+               
+        attention_score = atten_expand_positive * adj_positive + atten_expand_reverse * adj_reverse
         
         #softmax
         exp_attention_score = torch.exp(attention_score)
-        masked_adj = torch.abs(adj)
-        exp_attention_score = torch.mul(exp_attention_score.float(), masked_adj.float())
         sum_attention_score = torch.sum(exp_attention_score, dim=-1, keepdim = True).repeat(1,1,max_len)
         attention_score = torch.div(exp_attention_score, sum_attention_score + 1e-10)
         return attention_score
@@ -196,10 +134,8 @@ class ReAgcn(BertPreTrainedModel):
         dep_type_embedding_outputs = self.dep_type_embedding(dep_type_matrix)
         #dep_adj_matrix = torch.clamp(dep_adj_matrix, 0, 1)
         for i, gcn_layer_module in enumerate(self.gcn_layer):
-        #zhao_modify
+        
             attention_score = self.get_attention(sequence_output, dep_type_embedding_outputs, dep_adj_matrix, i)
-        #zhao_modify
-            
             sequence_output = gcn_layer_module(sequence_output, attention_score)
 
             if i < len(self.gcn_layer)-1:
@@ -208,7 +144,7 @@ class ReAgcn(BertPreTrainedModel):
         e1_h = self.extract_entity(sequence_output, e1_mask)
         e2_h = self.extract_entity(sequence_output, e2_mask)
         
-        pooled_output,_ = torch.max(sequence_output,-2)
+        # pooled_output,_ = torch.max(sequence_output,-2)
         pooled_output = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
         #pooled_output = self.dropout(pooled_output)
 
