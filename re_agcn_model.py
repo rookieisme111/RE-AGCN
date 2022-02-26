@@ -29,12 +29,6 @@ class ReAgcn(BertPreTrainedModel):
         first_linear_op = nn.Linear(config.hidden_size+config.entity_hidden_size, config.hidden_size+config.entity_hidden_size)
         self.linear_positive_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
         self.linear_reverse_op = nn.ModuleList([first_linear_op if _ == 0 else copy.deepcopy(linear_op) for _ in range(config.num_gcn_layers)])
-
-        #用于将三个拼接的张量，线性转换为一个实�?        
-        linear_op2 = nn.Linear(config.hidden_size*3,1)
-        first_linear_op2 = nn.Linear( config.hidden_size*3 + config.entity_hidden_size*2 , 1 )
-        self.linear_op2 =nn.ModuleList([ first_linear_op2 if _ == 0 else copy.deepcopy(linear_op2) for _ in range(config.num_gcn_layers)])
-        #zhao_add
         
         #add networks for entity-aware module
         self.We_linear = nn.Linear(config.hidden_size*2,config.entity_hidden_size)
@@ -69,6 +63,9 @@ class ReAgcn(BertPreTrainedModel):
 
         val_positive = self.linear_positive_op[i](val_positive)
         val_reverse = self.linear_reverse_op[i](val_reverse)
+
+        val_positive = val_positive.view(batch_size,max_len,max_len,feat_dim)
+        val_reverse = val_reverse.view(batch_size,max_len,max_len,feat_dim)
 
         val_positive = torch.cat((val_positive,dep_embed),axis=-1)
         val_positive = torch.cat((val_positive,dep_embed),axis=-1)
@@ -113,6 +110,8 @@ class ReAgcn(BertPreTrainedModel):
         gate_val = self.Wg_linear(gate_val)
         gate_val = gate_val.view(batch_size,max_len,-1)
         
+        gate_val = torch.sigmoid(gate_val)
+
         aware_output = torch.mul(candidate_output,gate_val)      
 
         return aware_output
